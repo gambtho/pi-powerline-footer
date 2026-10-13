@@ -58,6 +58,7 @@ async function harness(t: test.TestContext, jevAnswer: () => Response) {
     typeInEditor: (text: string) => { editorText = text; },
     pressEsc: () => { idle = true; run.abort(); },
     finishRun: () => { idle = true; },
+    beforeAgentStart: (event: object) => handlers.get("before_agent_start")!(event, ctx),
     input: (event: Omit<InputEvent, "type">) => handlers.get("input")!({ type: "input", ...event }, ctx),
   };
 }
@@ -72,6 +73,27 @@ test("a steered message Jev is confident can wait is queued as a follow-up", asy
   assert.deepEqual(h.sent, [["What is the weather in Lisbon?", { deliverAs: "followUp" }]]);
   assert.equal(h.requests[0]?.state.current_task, "Fix the checkout bug");
   assert.equal(h.requests[0]?.state.new_message, "What is the weather in Lisbon?");
+});
+
+test("custom-message turns preserve the last user task and later user prompts still update it", async (t) => {
+  const h = await harness(t, jevRoute("follow_up", 0.95));
+  await h.beforeAgentStart({
+    type: "before_agent_start",
+    messageType: "custom",
+    message: { role: "custom", customType: "subagent_complete", content: "Finished the review", display: true },
+    systemPrompt: "System prompt",
+  });
+  await h.input({ text: "also lint", source: "interactive", streamingBehavior: "steer" });
+  assert.equal(h.requests[0]?.state.current_task, "Fix the checkout bug");
+
+  await h.beforeAgentStart({ messageType: "user", prompt: "Fix the login bug" });
+  await h.input({ text: "also format", source: "interactive", streamingBehavior: "steer" });
+  assert.equal(h.requests[1]?.state.current_task, "Fix the login bug");
+
+  // Older supported Pi versions emit user events without a messageType tag.
+  await h.beforeAgentStart({ prompt: "Fix the search bug" });
+  await h.input({ text: "also test", source: "interactive", streamingBehavior: "steer" });
+  assert.equal(h.requests[2]?.state.current_task, "Fix the search bug");
 });
 
 test("corrections and unsure answers stay as steering", async (t) => {

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Custom-message turns** — Avoid a `Cannot read properties of undefined (reading 'replace')` error when an extension starts a turn with a custom message on newer Pi versions. Preserve the last real user task for auto follow-up and Working Vibes. Thanks to [@gambtho](https://github.com/gambtho).
+
 ## [0.20.0] - 2026-10-10
 
 ### Highlights
